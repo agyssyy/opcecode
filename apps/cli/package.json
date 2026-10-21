@@ -1,0 +1,23 @@
+{
+  "name": "opcecode",
+  "version": "0.0.0",
+  "description": "A small, open-source terminal coding agent.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "opcecode": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@opcecode/config": "0.0.0"
+  }
+}
