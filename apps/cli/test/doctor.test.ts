@@ -102,6 +102,31 @@ describe('doctor', () => {
     expect(findCheck(checks, 'api-key')).toMatchObject({ status: 'ok', detail: 'local endpoint' })
   })
 
+  it('does not repeat a missing API key as a config note', () => {
+    const config = mergeConfig(DEFAULT_CONFIG, {
+      model: 'openrouter/openrouter/free',
+      providers: { openrouter: { type: 'openai-compatible' } },
+    })
+    const checks = collectChecks({
+      cwd: tempDir(),
+      env: {},
+      run: healthyRun,
+      ensureHome: () => {},
+      load: () => ({
+        config,
+        sources: [{ path: 'opcecode.json', kind: 'project', found: true }],
+        warnings: [
+          'Environment variable "OPENROUTER_API_KEY" is not set (referenced in opcecode.json)',
+          'Unknown key "modle" in opcecode.json',
+        ],
+      }),
+    })
+
+    const notes = findCheck(checks, 'config-warnings')
+    expect(notes.detail).not.toContain('OPENROUTER_API_KEY')
+    expect(notes.detail).toContain('modle')
+  })
+
   it('fails with exit code 1 and JSON when config is invalid', () => {
     const logs: string[] = []
     const spy = vi.spyOn(console, 'log').mockImplementation((line?: unknown) => {

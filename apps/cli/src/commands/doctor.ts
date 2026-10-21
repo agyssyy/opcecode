@@ -229,6 +229,25 @@ function checkHome(env: NodeJS.ProcessEnv, ensureHome: (path: string) => void): 
 }
 
 /**
+ * Warnings already surfaced by the model/API-key checks are dropped here so
+ * doctor does not say the same thing twice.
+ */
+function relevantConfigNotes(loaded: LoadedConfig, env: NodeJS.ProcessEnv): string[] {
+  const selection = resolveModel(loaded.config)
+  const apiKey = selection
+    ? resolveApiKey(selection.providerID, selection.provider, env)
+    : undefined
+  const missingEnvVar = apiKey?.status === 'missing' ? apiKey.envVar : undefined
+
+  return loaded.warnings.filter((warning) => {
+    if (warning.startsWith('No model configured')) return false
+    if (warning.startsWith('Model "')) return false
+    if (missingEnvVar && warning.includes(`"${missingEnvVar}" is not set`)) return false
+    return true
+  })
+}
+
+/**
  * Collect diagnostics without printing. Tests inject `run` and `load` so this
  * stays fast and offline.
  */
@@ -272,12 +291,13 @@ export function collectChecks(options: CollectOptions): Check[] {
         detail: files.map((source) => `${source.kind}: ${source.path}`).join(', '),
       })
     }
-    if (loaded.warnings.length > 0) {
+    const notes = relevantConfigNotes(loaded, env)
+    if (notes.length > 0) {
       checks.push({
         id: 'config-warnings',
         label: 'Config notes',
         status: 'warn',
-        detail: truncate(loaded.warnings.join('; '), 200),
+        detail: truncate(notes.join('; '), 200),
         fix: 'Fix the warnings above, or rerun `opcecode init --force`',
       })
     }
