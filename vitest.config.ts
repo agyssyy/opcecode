@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@opcecode/config': fileURLToPath(new URL('./packages/config/src/index.ts', import.meta.url)),
+      '@opcecode/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
     },
   },
   test: {

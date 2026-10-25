@@ -2,13 +2,14 @@
 import { resolve } from 'node:path'
 import { ConfigError } from '@opcecode/config'
 import { type ParsedArgs, parseCommandLine, UsageError } from './args.js'
+import { runChat } from './commands/chat.js'
 import { runDoctor } from './commands/doctor.js'
 import { runInit } from './commands/init.js'
 import { helpText, initHelp } from './help.js'
 import { colorEnabled } from './theme.js'
 import { VERSION } from './version.js'
 
-export function main(argv: string[]): number {
+export async function main(argv: string[]): Promise<number> {
   let args: ParsedArgs
   try {
     args = parseCommandLine(argv)
@@ -47,6 +48,13 @@ export function main(argv: string[]): number {
           model: args.flags.model,
           force: args.flags.force,
         })
+      case 'chat':
+        return await runChat({
+          cwd,
+          env: process.env,
+          color,
+          model: args.flags.model,
+        })
     }
   } catch (error) {
     if (error instanceof UsageError) {
@@ -64,4 +72,4 @@ export function main(argv: string[]): number {
   }
 }
 
-process.exitCode = main(process.argv.slice(2))
+process.exitCode = await main(process.argv.slice(2))

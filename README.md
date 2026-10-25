@@ -5,7 +5,8 @@
 A small, open-source terminal coding agent. Talk to a model, let it read, edit, and run
 code in your repo — and approve the risky bits.
 
-**Status: pre-alpha.** The agent loop lands in M1. See [PLAN.md](./PLAN.md).
+**Status: alpha (M1).** The agent loop, tools, and permission prompts work. A TUI,
+more providers, and the Python sidecar are on the way. See [PLAN.md](./PLAN.md).
 
 ## Why
 
@@ -29,26 +30,52 @@ change. OpceCode! ships presets so you can start quickly and swap later:
 
 Default preset is `openrouter-free`. Edit `opcecode.json` to change the model at any time.
 
-## Try the scaffold (pre-alpha)
+## Try it
 
 ```sh
 git clone https://github.com/agyssyy/opcecode.git
 cd opcecode
 npm install
 npm run build
-npm run doctor
+npm link   # optional: puts `opcecode` on your PATH
 ```
 
-Create a config in your project:
+Then, from the project you want to work on:
 
 ```sh
-node apps/cli/dist/index.js init --preset openrouter-free
+opcecode init --preset openrouter-free   # writes opcecode.json
+opcecode doctor                          # checks config, key, and shell
+opcecode                                 # start chatting with your repo
 ```
+
+Without `npm link`, replace `opcecode` with `node <path-to-opcecode>/apps/cli/dist/index.js`.
+
+A session looks like this:
+
+```
+› fix the failing test in src/parser.test.ts
+● read src/parser.test.ts
+✓ read ok · 3ms
+● write src/parser.ts
+? write src/parser.ts (medium risk)
+[y] allow once  [a] always this session  [n] deny  [d] details y
+✓ write ok · 2ms
+● bash node --test
+? bash node --test (high risk)
+[y] allow once  [a] always this session  [n] deny  [d] details a
+✓ bash ok · 812ms
+Tests pass now (12/12).
+```
+
+`read` is allowed by default; every `write` and `bash` call asks first. Paths are jailed
+to the project directory, API keys are scrubbed from child processes, and Ctrl+C aborts
+a running turn.
 
 ## Repository layout
 
 ```
-apps/cli            CLI entrypoint, doctor, init
+apps/cli            CLI entrypoint, chat REPL, init, doctor
+packages/core       agent loop, providers, tools, permissions, sessions
 packages/config     config schema, precedence, presets
 docs/adr            architecture decisions
 python/             Python sidecar and evals (M3)
@@ -61,12 +88,13 @@ npm run build      # tsc project references
 npm test           # vitest
 npm run lint       # biome ci
 npm run dev -- doctor
+npm run dev -- chat
 ```
 
 ## Contributing
 
-Issues and PRs are welcome once M1 lands. Read [PLAN.md](./PLAN.md) first — v0.1 has a
-deliberately small scope. Be kind; see [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+Issues and PRs are welcome. v0.1 has a deliberately small scope — read
+[PLAN.md](./PLAN.md) first. Be kind; see [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
 ## License
 

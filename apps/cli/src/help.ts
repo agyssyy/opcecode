@@ -4,9 +4,11 @@ export function helpText(): string {
   return `OpceCode! v${VERSION} — open code, your code
 
 Usage:
+  opcecode [chat] [options]   Start an interactive session (default)
   opcecode <command> [options]
 
 Commands:
+  chat              Start an interactive session
   doctor            Check your setup
   init              Write opcecode.json from a provider preset
   help              Show this help
@@ -14,15 +16,18 @@ Commands:
 
 Options:
   --cwd <path>      Project directory (default: current directory)
+  --model <id>      Override the configured model (provider/model)
   --preset <id>     Preset for init: openrouter-free, groq, openai, local
-  --model <id>      Override the preset's model (provider/model)
-  --force           Overwrite an existing opcecode.json
+  --force           Overwrite an existing opcecode.json (init)
   --json            Machine-readable output (doctor)
   --no-color        Disable colors
   -h, --help        Show help
   -v, --version     Print version
 
-Interactive mode lands in M1. For now: opcecode init, then opcecode doctor.
+First time here?
+  opcecode init --preset openrouter-free
+  opcecode doctor
+  opcecode
 `
 }
 

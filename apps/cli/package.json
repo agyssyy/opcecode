@@ -18,6 +18,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@opcecode/config": "0.0.0"
+    "@opcecode/config": "0.0.0",
+    "@opcecode/core": "0.0.0"
   }
 }

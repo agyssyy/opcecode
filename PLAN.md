@@ -2,7 +2,7 @@
 
 > A small, open-source terminal coding agent. Talk to a model, let it read/edit/run code in your repo, approve the risky bits.
 
-Status: **proposal — awaiting approval**
+Status: **approved — M0 and M1 complete; M2 next**
 Owner: you
 Target: working local MVP (`v0.1.0`), MIT licensed
 
@@ -240,14 +240,14 @@ Project instructions: discover `AGENTS.md` / `OPCECODE.md` at the root and merge
 
 Estimates assume one developer, part-time, with review pauses. Each milestone ends in something demoable.
 
-| #      | Milestone      | Deliverable                                                                                                                                   | Est.    |
-| ------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| **M0** | Foundations    | Repo, workspaces, TS config, Biome, vitest, CI (Win+Linux), MIT license, README skeleton, ADR-001..005, `opcecode doctor` + config loader     | 0.5–1 d |
-| **M1** | Spine          | Provider interface + `openai-compatible`/Ollama, streaming, session JSONL, plain REPL, `read`/`write`/`bash`, permission prompt, abort        | 2–3 d   |
-| **M2** | Real editing   | `edit`/`grep`/`glob`/`list`/`todo`, `AGENTS.md` discovery, `.gitignore` handling, token budget + compaction, Anthropic adapter, usage display | 2–3 d   |
-| **M3** | Python         | Sidecar protocol, `py` tool, pytest eval harness, mock-provider scenarios, CI job                                                             | 2 d     |
-| **M4** | TUI + sessions | Ink or OpenTUI renderer behind `Renderer`, diffs in approvals, `sessions list/resume`, `--print` JSON, session titles                         | 2–3 d   |
-| **M5** | Release        | Docs + examples, security policy, `npx opcecode` smoke test, npm publish, GitHub release, demo GIF                                            | 2 d     |
+| #      | Milestone      | Deliverable                                                                                                                                   | Est.    | Status |
+| ------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ |
+| **M0** | Foundations    | Repo, workspaces, TS config, Biome, vitest, CI (Win+Linux), MIT license, README skeleton, ADR-001..005, `opcecode doctor` + config loader     | 0.5–1 d | ✅     |
+| **M1** | Spine          | Provider interface + `openai-compatible`, streaming, session JSONL, plain REPL, `read`/`write`/`bash`, permission prompt, abort               | 2–3 d   | ✅     |
+| **M2** | Real editing   | `edit`/`grep`/`glob`/`list`/`todo`, `AGENTS.md` discovery, `.gitignore` handling, token budget + compaction, Anthropic adapter, usage display | 2–3 d   | ⏳     |
+| **M3** | Python         | Sidecar protocol, `py` tool, pytest eval harness, mock-provider scenarios, CI job                                                             | 2 d     | ⏳     |
+| **M4** | TUI + sessions | Ink or OpenTUI renderer behind `Renderer`, diffs in approvals, `sessions list/resume`, `--print` JSON, session titles                         | 2–3 d   | ⏳     |
+| **M5** | Release        | Docs + examples, security policy, `npx opcecode` smoke test, npm publish, GitHub release, demo GIF                                            | 2 d     | ⏳     |
 
 **Total: ~10–14 working days** for a credible `v0.1.0`.
 

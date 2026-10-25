@@ -9,7 +9,7 @@ export class UsageError extends Error {
   }
 }
 
-export type CommandName = 'doctor' | 'init' | 'help' | 'version'
+export type CommandName = 'chat' | 'doctor' | 'init' | 'help' | 'version'
 
 export interface ParsedArgs {
   command: CommandName
@@ -23,7 +23,7 @@ export interface ParsedArgs {
   }
 }
 
-const COMMANDS = new Set<string>(['doctor', 'init', 'help', 'version'])
+const COMMANDS = new Set<string>(['chat', 'doctor', 'init', 'help', 'version'])
 
 interface ParseArgsResult {
   values: {
@@ -62,7 +62,7 @@ export function parseCommandLine(argv: string[]): ParsedArgs {
     throw new UsageError(error instanceof Error ? error.message : String(error))
   }
 
-  let command: CommandName = 'help'
+  let command: CommandName = 'chat'
   if (parsed.values.version) {
     command = 'version'
   } else if (parsed.values.help) {

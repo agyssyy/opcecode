@@ -1,0 +1,27 @@
+{
+  "name": "@opcecode/core",
+  "version": "0.0.0",
+  "description": "Agent loop, providers, tools, permissions, and sessions for OpceCode!",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@opcecode/config": "0.0.0"
+  }
+}

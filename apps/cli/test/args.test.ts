@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { parseCommandLine, UsageError } from '../src/args.js'
 
 describe('parseCommandLine', () => {
-  it('defaults to help', () => {
+  it('defaults to chat', () => {
     expect(parseCommandLine([])).toMatchObject({
-      command: 'help',
+      command: 'chat',
       flags: { color: true, json: false, force: false },
     })
+  })
+
+  it('parses the explicit chat command', () => {
+    expect(parseCommandLine(['chat']).command).toBe('chat')
   })
 
   it('parses doctor flags', () => {
