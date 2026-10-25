@@ -7,6 +7,11 @@ export interface ResolvedPath {
   relative: string
 }
 
+export interface ResolveOptions {
+  /** Allow the workspace root itself (for listing/searching the whole tree). */
+  allowRoot?: boolean
+}
+
 function tryRealpath(path: string): string | undefined {
   try {
     return realpathSync(path)
@@ -39,7 +44,11 @@ function resolveMissingPath(path: string): string {
  * Resolve a model-supplied path and reject anything outside the workspace.
  * Existing paths are canonicalized so a symlink cannot escape the jail.
  */
-export function resolveWorkspacePath(root: string, input: string): ResolvedPath {
+export function resolveWorkspacePath(
+  root: string,
+  input: string,
+  options: ResolveOptions = {},
+): ResolvedPath {
   if (input.trim() === '') throw new ToolError('Path must not be empty.')
 
   const rootReal = tryRealpath(root)
@@ -51,7 +60,11 @@ export function resolveWorkspacePath(root: string, input: string): ResolvedPath 
   const targetReal = tryRealpath(candidate) ?? resolveMissingPath(candidate)
   const rel = relative(rootReal, targetReal)
 
-  if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+  if (rel === '') {
+    if (options.allowRoot) return { absolute: targetReal, relative: '.' }
+    throw new ToolError(`Path is outside the workspace: ${input}`)
+  }
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new ToolError(`Path is outside the workspace: ${input}`)
   }
 

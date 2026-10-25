@@ -5,16 +5,17 @@
 A small, open-source terminal coding agent. Talk to a model, let it read, edit, and run
 code in your repo — and approve the risky bits.
 
-**Status: alpha (M1).** The agent loop, tools, and permission prompts work. A TUI,
-more providers, and the Python sidecar are on the way. See [PLAN.md](./PLAN.md).
+**Status: alpha (M2).** The agent loop, search and editing tools, context compaction, and
+two provider families (OpenAI-compatible and Anthropic) work. A TUI, session resume, and
+the Python sidecar are on the way. See [PLAN.md](./PLAN.md).
 
 ## Why
 
 - **Yours.** MIT licensed, no telemetry, sessions stay on your machine.
 - **Small.** A TypeScript core, a handful of sharp tools, and an optional Python sidecar.
 - **Explicit.** Every tool call is visible. Writes and shell commands ask first.
-- **Provider-agnostic.** Any OpenAI-compatible endpoint works: OpenRouter, Groq, OpenAI,
-  LM Studio, vLLM. Anthropic support lands in M2.
+- **Provider-agnostic.** Any OpenAI-compatible endpoint works (OpenRouter, Groq, OpenAI,
+  LM Studio, vLLM), plus Anthropic's Claude models natively.
 
 ## Providers and the "free" question
 
@@ -26,6 +27,7 @@ change. OpceCode! ships presets so you can start quickly and swap later:
 | `openrouter-free` | `OPENROUTER_API_KEY`                  | Free `:free` models, daily/rate caps |
 | `groq`            | `GROQ_API_KEY`                        | Fast free tier, rate caps            |
 | `openai`          | `OPENAI_API_KEY`                      | Paid, most reliable                  |
+| `anthropic`       | `ANTHROPIC_API_KEY`                   | Paid, native tool use                |
 | `local`           | LM Studio or vLLM on `localhost:1234` | Truly unlimited, needs hardware      |
 
 Default preset is `openrouter-free`. Edit `opcecode.json` to change the model at any time.
@@ -54,12 +56,14 @@ A session looks like this:
 
 ```
 › fix the failing test in src/parser.test.ts
+● grep "parse" (src/parser.test.ts)
+✓ grep ok · 4ms
 ● read src/parser.test.ts
 ✓ read ok · 3ms
-● write src/parser.ts
-? write src/parser.ts (medium risk)
+● edit src/parser.ts
+? edit src/parser.ts (medium risk)
 [y] allow once  [a] always this session  [n] deny  [d] details y
-✓ write ok · 2ms
+✓ edit ok · 2ms
 ● bash node --test
 ? bash node --test (high risk)
 [y] allow once  [a] always this session  [n] deny  [d] details a
@@ -67,9 +71,21 @@ A session looks like this:
 Tests pass now (12/12).
 ```
 
-`read` is allowed by default; every `write` and `bash` call asks first. Paths are jailed
-to the project directory, API keys are scrubbed from child processes, and Ctrl+C aborts
-a running turn.
+`read`, `list`, `glob`, `grep`, and `todo` are allowed by default; every `edit`, `write`,
+and `bash` call asks first. Paths are jailed to the project directory, API keys are
+scrubbed from child processes, and Ctrl+C aborts a running turn. In-chat commands:
+`/help`, `/model`, `/usage` (tokens and the current context estimate), `/session`, `/exit`.
+
+## Project instructions and long sessions
+
+Drop an `AGENTS.md` (or `OPCECODE.md`) at the project root and OpceCode! appends it to the
+system prompt. Extra rule files in `.opcecode/rules/*.md` are merged in name order. Search
+tools respect `.gitignore` and always skip `.git` and `node_modules`.
+
+Sessions are append-only JSONL logs. When the transcript exceeds `context.maxContextTokens`
+(24,000 estimated tokens by default), the oldest turns are replaced in the request with a
+bounded summary at a user-message boundary. The full log stays on disk, and each compaction
+is recorded as a `session.compact` event.
 
 ## Repository layout
 

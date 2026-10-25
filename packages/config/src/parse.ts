@@ -21,7 +21,7 @@ const TOP_LEVEL_KEYS = new Set([
 ])
 const PROVIDER_KEYS = new Set(['type', 'baseURL', 'apiKey', 'headers', 'models'])
 const PERMISSION_KEYS = new Set(['tool', 'pattern', 'decision'])
-const CONTEXT_KEYS = new Set(['maxSteps', 'readLimit', 'bashTimeoutMs'])
+const CONTEXT_KEYS = new Set(['maxSteps', 'readLimit', 'bashTimeoutMs', 'maxContextTokens'])
 
 export interface ParseResult {
   value: ConfigPatch
@@ -188,6 +188,13 @@ function parseContext(
       record.bashTimeoutMs,
       file,
       `${path}.bashTimeoutMs`,
+    )
+  }
+  if (record.maxContextTokens !== undefined) {
+    context.maxContextTokens = expectPositiveInteger(
+      record.maxContextTokens,
+      file,
+      `${path}.maxContextTokens`,
     )
   }
   return context

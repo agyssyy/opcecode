@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { TodoList } from '../src/todo.js'
 import { bashTool, readTool, writeTool } from '../src/tools/index.js'
 import { resolveWorkspacePath } from '../src/tools/path.js'
 import { type ToolContext, ToolError } from '../src/tools/types.js'
@@ -15,7 +16,13 @@ function tempDir(): string {
 }
 
 function context(cwd: string, bashTimeoutMs = 10_000): ToolContext {
-  return { cwd, signal: new AbortController().signal, readLimit: 500, bashTimeoutMs }
+  return {
+    cwd,
+    signal: new AbortController().signal,
+    readLimit: 500,
+    bashTimeoutMs,
+    todo: new TodoList(),
+  }
 }
 
 afterEach(() => {

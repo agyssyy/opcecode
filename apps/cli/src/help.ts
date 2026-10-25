@@ -17,7 +17,7 @@ Commands:
 Options:
   --cwd <path>      Project directory (default: current directory)
   --model <id>      Override the configured model (provider/model)
-  --preset <id>     Preset for init: openrouter-free, groq, openai, local
+  --preset <id>     Preset for init: openrouter-free, groq, openai, anthropic, local
   --force           Overwrite an existing opcecode.json (init)
   --json            Machine-readable output (doctor)
   --no-color        Disable colors
@@ -38,6 +38,7 @@ Presets:
   openrouter-free   OpenRouter free router (needs OPENROUTER_API_KEY)
   groq              Groq free tier (needs GROQ_API_KEY)
   openai            OpenAI (needs OPENAI_API_KEY)
+  anthropic         Anthropic Claude (needs ANTHROPIC_API_KEY, paid)
   local             LM Studio / vLLM on http://localhost:1234/v1
 `
 }

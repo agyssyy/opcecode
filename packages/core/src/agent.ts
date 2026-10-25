@@ -1,4 +1,5 @@
 import type { OpceCodeConfig } from '@opcecode/config'
+import { compactMessages, estimateTokens, estimateTokensForMessages } from './compact.js'
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -14,6 +15,7 @@ import {
   type ToolCall,
 } from './providers/types.js'
 import type { SessionRecorder, ToolEndStatus } from './session.js'
+import { TodoList } from './todo.js'
 import { detectShell } from './tools/bash.js'
 import { BUILTIN_TOOLS, getTool } from './tools/index.js'
 import { type ToolContext, ToolError } from './tools/types.js'
@@ -30,6 +32,10 @@ export interface TurnResult {
   reason: TurnReason
   steps: number
   usage: TurnUsage
+  /** Estimated tokens of the final request transcript (including the system prompt). */
+  contextTokens: number
+  /** Configured compaction budget for that estimate. */
+  contextBudget: number
   error?: string
 }
 
@@ -58,29 +64,36 @@ export interface AgentOptions {
   permissions: PermissionEngine
   approve: Approve
   onEvent: (event: AgentEvent) => void
+  /** Project instructions (AGENTS.md etc), appended to the system prompt. */
+  instructions?: string
 }
 
-function systemPrompt(cwd: string): string {
-  return [
+function systemPrompt(cwd: string, instructions: string): string {
+  const lines = [
     'You are OpceCode!, a terminal coding agent.',
     `Workspace root: ${cwd}`,
     `Commands run with ${detectShell().label}.`,
     '',
     'Guidelines:',
     '- Use the provided tools instead of guessing file contents.',
-    '- Read a file before you edit it, and write complete file contents with the write tool.',
+    '- Read a file before editing it. Use edit for targeted changes, write for complete files.',
+    '- Use the todo tool to plan multi-step work and keep its status current.',
     '- Keep responses short and focused on the task.',
     '- Prefer small, verifiable shell commands.',
     '- After making changes, summarize what changed.',
-  ].join('\n')
+  ]
+  if (instructions !== '') {
+    lines.push(
+      '',
+      'Project instructions from the repository. Follow them unless they conflict with safety or the user:',
+      instructions,
+    )
+  }
+  return lines.join('\n')
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4)
 }
 
 export class Agent {
@@ -92,7 +105,9 @@ export class Agent {
   private readonly permissions: PermissionEngine
   private readonly approve: Approve
   private readonly onEvent: (event: AgentEvent) => void
+  private readonly instructions: string
   private readonly messages: ChatMessage[]
+  private readonly todo = new TodoList()
   private readonly tools = BUILTIN_TOOLS
 
   constructor(options: AgentOptions) {
@@ -104,6 +119,7 @@ export class Agent {
     this.permissions = options.permissions
     this.approve = options.approve
     this.onEvent = options.onEvent
+    this.instructions = options.instructions?.trim() ?? ''
     this.messages = [...options.session.transcript()]
   }
 
@@ -114,6 +130,8 @@ export class Agent {
 
     const usage: TurnUsage = { inputTokens: 0, outputTokens: 0, estimated: false }
     const maxSteps = Math.max(this.config.context.maxSteps, 1)
+    const contextBudget = Math.max(this.config.context.maxContextTokens, 1000)
+    let contextTokens = 0
     let steps = 0
     let usageLogged = false
 
@@ -123,7 +141,14 @@ export class Agent {
         usageLogged = true
       }
       this.session.touch()
-      const result: TurnResult = { reason, steps, usage, ...(error ? { error } : {}) }
+      const result: TurnResult = {
+        reason,
+        steps,
+        usage,
+        contextTokens,
+        contextBudget,
+        ...(error ? { error } : {}),
+      }
       this.onEvent({ type: 'turn.end', result })
       return result
     }
@@ -132,15 +157,21 @@ export class Agent {
       for (; steps < maxSteps; steps += 1) {
         if (signal.aborted) throw createAbortError()
 
+        this.compactIfNeeded(contextBudget, steps)
+
         const request: ChatRequest = {
           model: this.model,
-          messages: [{ role: 'system', content: systemPrompt(this.cwd) }, ...this.messages],
+          messages: [
+            { role: 'system', content: systemPrompt(this.cwd, this.instructions) },
+            ...this.messages,
+          ],
           tools: this.tools.map((tool) => ({
             name: tool.name,
             description: tool.description,
             parameters: tool.parameters,
           })),
         }
+        contextTokens = estimateTokensForMessages(request.messages)
 
         let content = ''
         const calls: ToolCall[] = []
@@ -272,6 +303,7 @@ export class Agent {
       signal,
       readLimit: this.config.context.readLimit,
       bashTimeoutMs: this.config.context.bashTimeoutMs,
+      todo: this.todo,
     }
 
     try {
@@ -306,5 +338,40 @@ export class Agent {
     })
     this.onEvent({ type: 'tool.end', call, subject, status, output, durationMs })
     this.messages.push({ role: 'tool', content: output, toolCallID: call.id, name: call.name })
+  }
+
+  /**
+   * Drop whole turns from the in-memory transcript when it exceeds the
+   * configured context budget. The session log stays complete: compaction is
+   * a request-time view, recorded as a `session.compact` event.
+   */
+  private compactIfNeeded(budget: number, step: number): void {
+    const outcome = compactMessages(this.messages, { maxTokens: budget })
+    if (outcome.compacted) {
+      this.messages.splice(0, this.messages.length, ...outcome.messages)
+      this.session.append({
+        type: 'session.compact',
+        omittedMessages: outcome.omittedMessages,
+        omittedTurns: outcome.omittedTurns,
+        summary: outcome.summary,
+        beforeTokens: outcome.beforeTokens,
+        afterTokens: outcome.afterTokens,
+      })
+      this.onEvent({
+        type: 'notice',
+        level: 'info',
+        message: `Context compacted: dropped ${outcome.omittedMessages} message${
+          outcome.omittedMessages === 1 ? '' : 's'
+        } (~${outcome.beforeTokens} → ~${outcome.afterTokens} tokens).`,
+      })
+      return
+    }
+    if (outcome.overBudget && step === 0) {
+      this.onEvent({
+        type: 'notice',
+        level: 'warn',
+        message: `Transcript is over the context budget (~${outcome.beforeTokens} tokens) and cannot be compacted further. Start a new session for best results.`,
+      })
+    }
   }
 }

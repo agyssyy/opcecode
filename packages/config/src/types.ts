@@ -23,6 +23,8 @@ export interface ContextConfig {
   maxSteps: number
   readLimit: number
   bashTimeoutMs: number
+  /** Estimated transcript tokens before oldest turns are compacted. */
+  maxContextTokens: number
 }
 
 export interface OpceCodeConfig {

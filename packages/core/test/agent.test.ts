@@ -20,12 +20,12 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
-function testConfig(maxSteps = 25): OpceCodeConfig {
+function testConfig(maxSteps = 25, maxContextTokens = 24_000): OpceCodeConfig {
   return {
     model: 'mock/mock-model',
     providers: {},
     permissions: [],
-    context: { maxSteps, readLimit: 200, bashTimeoutMs: 5000 },
+    context: { maxSteps, readLimit: 200, bashTimeoutMs: 5000, maxContextTokens },
     projectInstructions: [],
   }
 }
@@ -66,7 +66,9 @@ function harness(options: {
   rules?: ConstructorParameters<typeof PermissionEngine>[0]
   decision?: 'allow-once' | 'allow-session' | 'deny'
   maxSteps?: number
+  maxContextTokens?: number
   cwd?: string
+  instructions?: string
 }): Harness {
   const home = tempDir()
   const cwd = options.cwd ?? tempDir()
@@ -76,7 +78,7 @@ function harness(options: {
   const events: string[] = []
 
   const agent = new Agent({
-    config: testConfig(options.maxSteps),
+    config: testConfig(options.maxSteps, options.maxContextTokens),
     cwd,
     model: 'mock-model',
     provider,
@@ -92,6 +94,7 @@ function harness(options: {
       return options.decision ?? 'allow-once'
     },
     onEvent: (event) => events.push(event.type),
+    ...(options.instructions !== undefined ? { instructions: options.instructions } : {}),
   })
 
   return { agent, provider, session, approvals, events }
@@ -119,7 +122,7 @@ describe('Agent', () => {
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: 'Hello!' },
     ])
-    expect(provider.requests[0]?.tools).toHaveLength(3)
+    expect(provider.requests[0]?.tools).toHaveLength(8)
   })
 
   it('executes an allowed tool and feeds the result back to the model', async () => {
@@ -267,5 +270,45 @@ describe('Agent', () => {
     expect(
       session.events().some((event) => event.type === 'error' && event.message.includes('aborted')),
     ).toBe(true)
+  })
+
+  it('includes project instructions in the system prompt', async () => {
+    const { agent, provider } = harness({
+      scripts: [[{ type: 'text', delta: 'ok' }, ...done()]],
+      instructions: 'Always run the formatter.',
+    })
+
+    await agent.send('hi', new AbortController().signal)
+    const messages = provider.requests[0]?.messages as Array<{ role: string; content: string }>
+    expect(messages[0]?.role).toBe('system')
+    expect(messages[0]?.content).toContain('Always run the formatter.')
+  })
+
+  it('compacts old turns and logs session.compact', async () => {
+    const { agent, provider, session, events } = harness({
+      scripts: [
+        [{ type: 'text', delta: 'a'.repeat(6000) }, ...done()],
+        [{ type: 'text', delta: 'b'.repeat(6000) }, ...done()],
+        [{ type: 'text', delta: 'c' }, ...done()],
+      ],
+      maxContextTokens: 2000,
+    })
+
+    await agent.send('first', new AbortController().signal)
+    await agent.send('second', new AbortController().signal)
+    const result = await agent.send('third', new AbortController().signal)
+
+    const compact = session.events().find((event) => event.type === 'session.compact')
+    expect(compact).toMatchObject({ type: 'session.compact' })
+    expect(result.contextBudget).toBe(2000)
+    expect(result.contextTokens).toBeLessThanOrEqual(2000)
+    expect(events).toContain('notice')
+
+    const messages = provider.requests.at(-1)?.messages as Array<{
+      role: string
+      content: string
+    }>
+    expect(messages[0]?.role).toBe('system')
+    expect(messages.some((message) => message.content.includes('[compacted]'))).toBe(true)
   })
 })

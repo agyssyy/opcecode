@@ -18,6 +18,7 @@ export const DEFAULT_CONFIG: OpceCodeConfig = {
     maxSteps: 25,
     readLimit: 500,
     bashTimeoutMs: 120_000,
+    maxContextTokens: 24_000,
   },
   projectInstructions: ['AGENTS.md', 'OPCECODE.md'],
 }

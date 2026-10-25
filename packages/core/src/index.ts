@@ -8,6 +8,20 @@ export {
   type TurnUsage,
 } from './agent.js'
 export {
+  type CompactOptions,
+  type CompactOutcome,
+  compactMessages,
+  estimateTokens,
+  estimateTokensForMessages,
+  summarizeOmitted,
+} from './compact.js'
+export { type GitignorePattern, IgnoreMatcher, parseGitignorePattern } from './gitignore.js'
+export {
+  loadProjectInstructions,
+  type ProjectInstructions,
+} from './instructions.js'
+export { isGlobPattern, matchGlob } from './patterns.js'
+export {
   type ApprovalDecision,
   type ApprovalRequest,
   matchesPattern,
@@ -15,6 +29,11 @@ export {
   type RiskLevel,
 } from './permissions.js'
 export * from './providers/index.js'
+export {
+  type WalkEntry,
+  type WalkOptions,
+  walkFiles,
+} from './search.js'
 export {
   type CreateSessionOptions,
   messagesFromEvents,
@@ -26,12 +45,23 @@ export {
   SessionRecorder,
   type ToolEndStatus,
 } from './session.js'
+export { type TodoItem, TodoList, type TodoStatus } from './todo.js'
 export {
+  atomicWriteFile,
   BUILTIN_TOOLS,
   bashTool,
   detectShell,
+  editTool,
   getTool,
+  globTool,
+  grepTool,
+  listTool,
+  optionalBoolean,
+  optionalInteger,
+  optionalString,
+  type ResolveOptions,
   readTool,
+  requireString,
   resolveWorkspacePath,
   runCommand,
   scrubEnv,
@@ -40,6 +70,7 @@ export {
   type ToolDefinition,
   ToolError,
   type ToolResult,
+  todoTool,
   truncateText,
   writeTool,
 } from './tools/index.js'

@@ -42,6 +42,15 @@ export type SessionEvent =
       durationMs: number
     }
   | { type: 'usage'; at: string; inputTokens: number; outputTokens: number; estimated: boolean }
+  | {
+      type: 'session.compact'
+      at: string
+      omittedMessages: number
+      omittedTurns: number
+      summary: string
+      beforeTokens: number
+      afterTokens: number
+    }
   | { type: 'error'; at: string; message: string }
 
 export type SessionEventDraft =
@@ -57,6 +66,14 @@ export type SessionEventDraft =
       durationMs: number
     }
   | { type: 'usage'; inputTokens: number; outputTokens: number; estimated: boolean }
+  | {
+      type: 'session.compact'
+      omittedMessages: number
+      omittedTurns: number
+      summary: string
+      beforeTokens: number
+      afterTokens: number
+    }
   | { type: 'error'; message: string }
 
 export interface CreateSessionOptions {

@@ -1,10 +1,13 @@
 import type { RiskLevel } from '../permissions.js'
+import type { TodoList } from '../todo.js'
 
 export interface ToolContext {
   cwd: string
   signal: AbortSignal
   readLimit: number
   bashTimeoutMs: number
+  /** Session task list shared by all todo tool calls. */
+  todo: TodoList
 }
 
 export interface ToolResult {
@@ -62,6 +65,15 @@ export function optionalInteger(
   if (value === undefined) return undefined
   if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum) {
     throw new ToolError(`Invalid "${key}" argument: expected an integer >= ${minimum}.`)
+  }
+  return value
+}
+
+export function optionalBoolean(args: Record<string, unknown>, key: string): boolean | undefined {
+  const value = args[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'boolean') {
+    throw new ToolError(`Invalid "${key}" argument: expected a boolean.`)
   }
   return value
 }

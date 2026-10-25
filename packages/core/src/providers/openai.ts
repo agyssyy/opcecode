@@ -1,10 +1,9 @@
+import { parseSseJson, postSSE } from './sse.js'
 import {
   type ChatMessage,
   type ChatRequest,
   createAbortError,
-  isAbortError,
   type Provider,
-  ProviderError,
   type ProviderEvent,
   type ToolSchema,
 } from './types.js'
@@ -77,49 +76,8 @@ function toWireMessage(message: ChatMessage): Record<string, unknown> {
   return { role: message.role, content: message.content }
 }
 
-function dataLine(line: string): string | undefined {
-  if (!line.startsWith('data:')) return undefined
-  const data = line.slice(5).trim()
-  return data === '' ? undefined : data
-}
-
-async function* sseEvents(
-  body: ReadableStream<Uint8Array>,
-  signal: AbortSignal,
-): AsyncGenerator<string> {
-  const reader = body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  try {
-    while (true) {
-      if (signal.aborted) throw createAbortError()
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      let newline = buffer.indexOf('\n')
-      while (newline !== -1) {
-        let line = buffer.slice(0, newline)
-        buffer = buffer.slice(newline + 1)
-        if (line.endsWith('\r')) line = line.slice(0, -1)
-        const data = dataLine(line)
-        if (data !== undefined) yield data
-        newline = buffer.indexOf('\n')
-      }
-    }
-
-    buffer += decoder.decode()
-    const tail = dataLine(buffer.trim())
-    if (tail !== undefined) yield tail
-  } finally {
-    reader.releaseLock()
-  }
-}
-
 export function createOpenAICompatibleProvider(options: OpenAICompatibleOptions): Provider {
   const baseURL = (options.baseURL ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
-  const fetchImpl = options.fetchImpl ?? fetch
 
   return {
     id: options.id,
@@ -140,47 +98,20 @@ export function createOpenAICompatibleProvider(options: OpenAICompatibleOptions)
       if (request.temperature !== undefined) payload.temperature = request.temperature
       if (request.maxTokens !== undefined) payload.max_tokens = request.maxTokens
 
-      let response: Response
-      try {
-        response = await fetchImpl(`${baseURL}/chat/completions`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-          signal,
-        })
-      } catch (error) {
-        if (isAbortError(error)) throw error
-        const message = error instanceof Error ? error.message : String(error)
-        throw new ProviderError(`Could not reach ${baseURL}: ${message}`)
-      }
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => '')
-        const detail = text.length > 500 ? `${text.slice(0, 500)}…` : text
-        throw new ProviderError(
-          `Provider request failed (${response.status} ${response.statusText})${detail ? `: ${detail}` : ''}`,
-          response.status,
-        )
-      }
-
-      if (!response.body) {
-        throw new ProviderError('Provider returned an empty response body')
-      }
-
       const calls = new Map<number, { id: string; name: string; arguments: string }>()
       let finishReason = 'stop'
 
-      for await (const data of sseEvents(response.body, signal)) {
+      for await (const data of postSSE({
+        url: `${baseURL}/chat/completions`,
+        headers,
+        payload,
+        signal,
+        label: baseURL,
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+      })) {
         if (data === '[DONE]') break
 
-        let chunk: WireChunk
-        try {
-          chunk = JSON.parse(data) as WireChunk
-        } catch {
-          const detail = data.length > 200 ? `${data.slice(0, 200)}…` : data
-          throw new ProviderError(`Invalid SSE payload from provider: ${detail}`)
-        }
-
+        const chunk = parseSseJson<WireChunk>(data)
         const choice = chunk.choices?.[0]
         const delta = choice?.delta
 

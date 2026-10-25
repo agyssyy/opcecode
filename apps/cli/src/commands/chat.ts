@@ -10,6 +10,7 @@ import {
 import {
   Agent,
   type AgentEvent,
+  loadProjectInstructions,
   PermissionEngine,
   SessionRecorder,
   type TurnResult,
@@ -31,6 +32,7 @@ interface Totals {
   inputTokens: number
   outputTokens: number
   turns: number
+  estimatedTurns: number
 }
 
 function formatTokens(value: number): string {
@@ -143,6 +145,7 @@ export async function runChat(options: ChatOptions): Promise<number> {
   })
   const permissions = new PermissionEngine(loaded.config.permissions)
   const approve = createApprovalPrompt({ styles, stdin: process.stdin, stdout })
+  const instructions = loadProjectInstructions(options.cwd, loaded.config.projectInstructions)
 
   let needsNewline = false
   const writeLine = (text = '') => {
@@ -153,7 +156,9 @@ export async function runChat(options: ChatOptions): Promise<number> {
     stdout.write(`${text}\n`)
   }
 
-  const totals: Totals = { inputTokens: 0, outputTokens: 0, turns: 0 }
+  const totals: Totals = { inputTokens: 0, outputTokens: 0, turns: 0, estimatedTurns: 0 }
+  let contextTokens = 0
+  let contextBudget = loaded.config.context.maxContextTokens
   const handleEvent = (event: AgentEvent) => {
     switch (event.type) {
       case 'text':
@@ -198,6 +203,7 @@ export async function runChat(options: ChatOptions): Promise<number> {
     permissions,
     approve,
     onEvent: handleEvent,
+    ...(instructions.text !== '' ? { instructions: instructions.text } : {}),
   })
 
   let active: AbortController | null = null
@@ -218,8 +224,20 @@ export async function runChat(options: ChatOptions): Promise<number> {
     stdout.write(`${styles.dim('  model   ')}${selection.providerID}/${selection.modelID}\n`)
     stdout.write(`${styles.dim('  cwd     ')}${options.cwd}\n`)
     stdout.write(`${styles.dim('  session ')}${session.dir}\n`)
+    if (instructions.files.length > 0) {
+      stdout.write(
+        `${styles.dim('  rules   ')}${instructions.files.join(', ')} ${styles.dim('(project instructions)')}\n`,
+      )
+    }
     stdout.write(
-      `${styles.dim('  tools   ')}read, write, bash ${styles.dim('(write and bash ask first)')}\n`,
+      `${styles.dim('  tools   ')}read, list, glob, grep, edit, write, bash, todo ${styles.dim(
+        '(edit, write, and bash ask first)',
+      )}\n`,
+    )
+    stdout.write(
+      `${styles.dim('  context ')}~${formatTokens(loaded.config.context.maxContextTokens)} tokens ${styles.dim(
+        '(compaction budget, estimated)',
+      )}\n`,
     )
     stdout.write(`\nType ${styles.cyan('/help')} for commands. Ctrl+C aborts a running turn.\n\n`)
 
@@ -238,12 +256,29 @@ export async function runChat(options: ChatOptions): Promise<number> {
         } else if (command === '/session') {
           writeLine(session.dir)
         } else if (command === '/usage') {
-          const estimate = totals.inputTokens > 0 ? '~' : ''
+          const exact = totals.estimatedTurns === 0
+          const mark = exact ? '' : '~'
           writeLine(
-            `${totals.turns} turn${totals.turns === 1 ? '' : 's'}, ${estimate}${formatTokens(
+            `${totals.turns} turn${totals.turns === 1 ? '' : 's'}, ${mark}${formatTokens(
               totals.inputTokens,
-            )} in / ${estimate}${formatTokens(totals.outputTokens)} out (estimated)`,
+            )} in / ${mark}${formatTokens(totals.outputTokens)} out`,
           )
+          if (!exact) {
+            writeLine(
+              styles.dim(
+                `estimated for ${totals.estimatedTurns} of ${totals.turns} turn${
+                  totals.turns === 1 ? '' : 's'
+                } (the provider did not report usage)`,
+              ),
+            )
+          }
+          if (contextTokens > 0) {
+            writeLine(
+              styles.dim(
+                `context ~${formatTokens(contextTokens)} / ${formatTokens(contextBudget)} tokens (estimated from characters)`,
+              ),
+            )
+          }
         } else {
           writeLine(styles.yellow(`Unknown command "${command}". Type /help.`))
         }
@@ -256,6 +291,9 @@ export async function runChat(options: ChatOptions): Promise<number> {
       totals.turns += 1
       totals.inputTokens += result.usage.inputTokens
       totals.outputTokens += result.usage.outputTokens
+      if (result.usage.estimated) totals.estimatedTurns += 1
+      contextTokens = result.contextTokens
+      contextBudget = result.contextBudget
     }
 
     session.touch()

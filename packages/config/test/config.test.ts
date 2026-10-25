@@ -65,7 +65,12 @@ describe('loadConfig', () => {
       apiKey: 'sk-global',
       baseURL: 'https://example.test/v1',
     })
-    expect(loaded.config.context).toEqual({ maxSteps: 9, readLimit: 100, bashTimeoutMs: 120_000 })
+    expect(loaded.config.context).toEqual({
+      maxSteps: 9,
+      readLimit: 100,
+      bashTimeoutMs: 120_000,
+      maxContextTokens: 24_000,
+    })
     expect(loaded.config.permissions).toEqual([{ tool: 'bash', decision: 'deny' }])
     expect(loaded.sources.map((source) => source.found)).toEqual([true, true])
 
@@ -141,6 +146,17 @@ describe('loadConfig', () => {
     const loaded = load({ [projectPath]: JSON.stringify({ model: 'ghost/model' }) })
     expect(loaded.warnings.join('\n')).toContain('provider "ghost"')
   })
+
+  it('parses context.maxContextTokens', () => {
+    const loaded = load({ [projectPath]: JSON.stringify({ context: { maxContextTokens: 8000 } }) })
+    expect(loaded.config.context.maxContextTokens).toBe(8000)
+  })
+
+  it('rejects a non-positive maxContextTokens', () => {
+    expect(() =>
+      load({ [projectPath]: JSON.stringify({ context: { maxContextTokens: 0 } }) }),
+    ).toThrow(/maxContextTokens.*positive integer/)
+  })
 })
 
 describe('model references', () => {
@@ -200,6 +216,16 @@ describe('resolveApiKey', () => {
     expect(resolveApiKey('openrouter', { type: 'openai-compatible' }, {})).toEqual({
       status: 'missing',
       envVar: 'OPENROUTER_API_KEY',
+    })
+  })
+
+  it('uses ANTHROPIC_API_KEY for anthropic providers', () => {
+    expect(
+      resolveApiKey('anthropic', { type: 'anthropic' }, { ANTHROPIC_API_KEY: 'sk-ant-test' }),
+    ).toEqual({ status: 'present', source: 'env', envVar: 'ANTHROPIC_API_KEY' })
+    expect(resolveApiKey('anthropic', { type: 'anthropic' }, {})).toEqual({
+      status: 'missing',
+      envVar: 'ANTHROPIC_API_KEY',
     })
   })
 })

@@ -1,3 +1,4 @@
+export { type AnthropicOptions, createAnthropicProvider } from './anthropic.js'
 export { createOpenAICompatibleProvider, type OpenAICompatibleOptions } from './openai.js'
 export {
   type ChatMessage,

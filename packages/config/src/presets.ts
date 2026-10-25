@@ -60,6 +60,20 @@ export const PRESETS: Record<string, ProviderPreset> = {
       },
     },
   },
+  anthropic: {
+    id: 'anthropic',
+    label: 'Anthropic (Claude)',
+    description: 'Native tool use via the Anthropic API. Paid.',
+    config: {
+      model: 'anthropic/claude-sonnet-4-5',
+      providers: {
+        anthropic: {
+          type: 'anthropic',
+          apiKey: '${env:ANTHROPIC_API_KEY}',
+        },
+      },
+    },
+  },
   local: {
     id: 'local',
     label: 'Local model (LM Studio / vLLM)',

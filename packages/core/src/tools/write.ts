@@ -1,6 +1,5 @@
-import { randomBytes } from 'node:crypto'
-import { mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
+import { readFileSync, statSync } from 'node:fs'
+import { atomicWriteFile } from './fsx.js'
 import { resolveWorkspacePath } from './path.js'
 import { requireString, type ToolDefinition, ToolError } from './types.js'
 
@@ -49,23 +48,7 @@ export const writeTool: ToolDefinition = {
       return { output: `No changes: ${resolved.relative}` }
     }
 
-    mkdirSync(dirname(resolved.absolute), { recursive: true })
-    const temp = join(
-      dirname(resolved.absolute),
-      `.${basename(resolved.absolute)}.opcecode-${process.pid}-${randomBytes(4).toString('hex')}.tmp`,
-    )
-
-    writeFileSync(temp, content, 'utf8')
-    try {
-      try {
-        renameSync(temp, resolved.absolute)
-      } catch {
-        rmSync(resolved.absolute, { force: true })
-        renameSync(temp, resolved.absolute)
-      }
-    } finally {
-      rmSync(temp, { force: true })
-    }
+    atomicWriteFile(resolved.absolute, content)
 
     const bytes = Buffer.byteLength(content, 'utf8')
     return {
